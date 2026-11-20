@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ティーのスレスパ2 デッキ（リアルタイム）</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=M+PLUS+1p:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Kreon:wght@400;700&family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #14161c; --panel: #1e212a; --panel2: #262a35; --line: #343947;
@@ -13,7 +13,36 @@
     --atk: #ff8a7a; --skl: #7cb7ff; --pow: #f2c14e; --oth: #b9b9c6;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font-family: "M PLUS 1p", system-ui, sans-serif; font-size: 16px; line-height: 1.6; }
+  /* 数字・英字は Kreon、日本語は丸ゴシック（--jp を差し替えればフォント変更できる） */
+  :root { --jp: "M PLUS Rounded 1c"; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: "Kreon", var(--jp), system-ui, sans-serif; font-weight: 500; font-size: 16px; line-height: 1.6; }
+  b, strong, .name, .who, h2, .cost { font-weight: 800; }
+  /* カード表示 */
+  .viewbtn { font: inherit; color: var(--text); background: var(--panel2); border: 1px solid #59607a; border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+  .cgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 14px 12px; }
+  .gc { position: relative; aspect-ratio: 5 / 7; border-radius: 12px; padding: 30px 8px 8px; display: flex; flex-direction: column; align-items: center;
+        background: #4d4d43; border: 5px solid #8f8a4a; box-shadow: inset 0 0 0 2px #2b2b24, 0 3px 8px rgba(0,0,0,.5); }
+  .gc.Attack { border-color: #a5622f; } .gc.Skill { border-color: #3f7d96; } .gc.Power { border-color: #b08a2c; }
+  .gc.Curse { border-color: #6b3fa0; background: #3a3344; } .gc.Status { border-color: #6c6c6c; background: #3d3d3d; }
+  .gc.new { box-shadow: inset 0 0 0 2px #2b2b24, 0 0 0 3px var(--green); }
+  .gc .co { position: absolute; top: -12px; left: -12px; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
+            background: radial-gradient(circle at 35% 30%, #ffe48a, #c9952b); color: #2b2210; font-weight: 800; font-size: 21px; border: 2px solid #5a4316; }
+  .gc .bn { position: absolute; top: 4px; left: 14px; right: 6px; text-align: center; border-radius: 6px; padding: 2px 4px; font-weight: 800; font-size: 16px; line-height: 1.3;
+            color: #fff; text-shadow: -1px -1px 0 #222, 1px -1px 0 #222, -1px 1px 0 #222, 1px 1px 0 #222; background: #8a8a86; }
+  .gc .bn.r-uncommon { background: #3d79b3; } .gc .bn.r-rare { background: #c99a2e; } .gc .bn.r-curse { background: #7a4cc0; }
+  .gc .bn .up { color: #7bf08a; } .gc .bn.upg { color: #8ff59c; }
+  .gc .tp { margin-top: 2px; font-size: 12px; background: #e9e4cf; color: #3a3523; border-radius: 4px; padding: 0 8px; }
+  .gc .tx { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; padding: 6px 2px; color: #f3efe2; }
+  .gc .tx .desc { margin: 0; font-size: 14.5px; line-height: 1.5; }
+  .gc .gt { font-size: 11.5px; color: #cfc9b0; text-align: center; }
+  @media (max-width: 640px) {
+    .cgrid { grid-template-columns: repeat(2, 1fr); gap: 14px 10px; padding-left: 6px; }
+    .gc { padding-top: 26px; border-width: 4px; }
+    .gc .bn { font-size: 13.5px; left: 12px; }
+    .gc .co { width: 32px; height: 32px; font-size: 18px; top: -10px; left: -10px; }
+    .gc .tx .desc { font-size: 12.5px; }
+    .gc .gt { font-size: 10.5px; }
+  }
   header { position: sticky; top: 0; z-index: 5; background: rgba(20,22,28,.96); border-bottom: 1px solid var(--line); padding: 12px 16px; }
   .top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; max-width: 980px; margin: 0 auto; }
   .who { font-size: 20px; font-weight: 700; }
@@ -82,10 +111,12 @@
     <div class="tools">
       <input id="q" type="search" placeholder="カード名・効果で絞り込み（例：ブロック）">
       <select id="sort">
-        <option value="type">種類別</option>
-        <option value="got">取得が新しい順</option>
-        <option value="cost">コスト順</option>
+        <option value="got">入手順</option>
+        <option value="type">カードタイプ</option>
+        <option value="cost">コスト</option>
+        <option value="name">名前順</option>
       </select>
+      <button id="view" class="viewbtn" type="button">カード表示に切り替え</button>
     </div>
     <div id="deckBody"><p class="msg">読み込み中…</p></div>
   </div>
@@ -139,52 +170,83 @@
     var c = DATA.cards[key];
     if (!c) return { name: key, desc: '（日本語データなし）', upg: '', cost: '', type: 'Other', typeJP: '', rarity: '' };
     var typeKey = Object.keys(TYPE_JP).find(function (k) { return TYPE_JP[k] === c[4]; }) || 'Other';
-    return { name: c[0], desc: c[1], upg: c[2], cost: c[3], type: typeKey, typeJP: c[4], rarity: c[5], star: c[7] };
+    return { name: c[0], desc: c[1], upg: c[2], cost: c[3], type: typeKey, typeJP: c[4], rarity: c[5], star: c[7], ucost: c[8] != null ? c[8] : c[3] };
   }
+
+  var VIEW = 'list';
+  try { VIEW = localStorage.getItem('sts2deck_view') || 'list'; } catch (e) {}
 
   function renderDeck() {
     if (!state) return;
     var q = $('q').value.trim();
     var sort = $('sort').value;
-    // 同じカード（強化の有無も同じ）をまとめる
-    var groups = {};
-    state.deck.forEach(function (d) {
-      var gk = d.key + (d.upgraded ? '+' : '');
-      if (!groups[gk]) groups[gk] = { key: d.key, upgraded: d.upgraded, items: [] };
-      groups[gk].items.push(d);
-    });
-    var arr = Object.keys(groups).map(function (k) {
-      var g = groups[k]; g.info = cardInfo(g.key);
+    var cardMode = VIEW === 'card';
+    $('view').textContent = cardMode ? 'リスト表示に切り替え' : 'カード表示に切り替え';
+    // リスト表示は同じカード（強化の有無も同じ）をまとめる。カード表示は1枚ずつ並べる
+    var groups = {}, arr;
+    if (cardMode) {
+      arr = state.deck.map(function (d) { return { key: d.key, upgraded: d.upgraded, items: [d] }; });
+    } else {
+      state.deck.forEach(function (d) {
+        var gk = d.key + (d.upgraded ? '+' : '');
+        if (!groups[gk]) groups[gk] = { key: d.key, upgraded: d.upgraded, items: [] };
+        groups[gk].items.push(d);
+      });
+      arr = Object.keys(groups).map(function (k) { return groups[k]; });
+    }
+    arr.forEach(function (g) {
+      g.info = cardInfo(g.key);
       g.lastSeq = Math.max.apply(null, g.items.map(function (i) { return i.seq || 0; }));
-      return g;
     });
     if (q) arr = arr.filter(function (g) { return (g.info.name + (g.upgraded ? g.info.upg : g.info.desc)).indexOf(q) >= 0; });
 
     function costNum(c) { return c === 'X' ? 99 : (typeof c === 'number' && c >= 0 ? c : 100); }
-    var html = '';
-    function block(list) {
-      return '<div class="grid">' + list.map(cardHTML).join('') + '</div>';
-    }
-    if (sort === 'type') {
+    function typeIdx(t) { var i = TYPE_ORDER.indexOf(t); return i < 0 ? 99 : i; }
+    var cmp = {
+      got: function (a, b) { return a.lastSeq - b.lastSeq; },
+      type: function (a, b) { return typeIdx(a.info.type) - typeIdx(b.info.type) || a.lastSeq - b.lastSeq; },
+      cost: function (a, b) { return costNum(a.info.cost) - costNum(b.info.cost) || a.lastSeq - b.lastSeq; },
+      name: function (a, b) { return a.info.name.localeCompare(b.info.name, 'ja') || a.lastSeq - b.lastSeq; }
+    }[sort] || function () { return 0; };
+    arr.sort(cmp);
+
+    var html;
+    if (cardMode) {
+      html = '<div class="cgrid">' + arr.map(gameCardHTML).join('') + '</div>';
+    } else if (sort === 'type') {
+      html = '';
       TYPE_ORDER.concat(['Other']).forEach(function (t) {
-        var list = arr.filter(function (g) { return g.info.type === t; })
-          .sort(function (a, b) { return a.lastSeq - b.lastSeq; });
+        var list = arr.filter(function (g) { return g.info.type === t; });
         if (!list.length) return;
         var n = list.reduce(function (s, g) { return s + g.items.length; }, 0);
-        html += '<h2>' + (TYPE_JP[t] || 'その他') + ' <span class="n">' + n + '枚</span></h2>' + block(list);
+        html += '<h2>' + (TYPE_JP[t] || 'その他') + ' <span class="n">' + n + '枚</span></h2><div class="grid">' + list.map(cardHTML).join('') + '</div>';
       });
-    } else if (sort === 'got') {
-      html = block(arr.sort(function (a, b) { return b.lastSeq - a.lastSeq; }));
     } else {
-      html = block(arr.sort(function (a, b) { return costNum(a.info.cost) - costNum(b.info.cost) || a.lastSeq - b.lastSeq; }));
+      html = '<div class="grid">' + arr.map(cardHTML).join('') + '</div>';
     }
     var total = state.deck.length;
-    $('deckBody').innerHTML = '<h2>デッキ <span class="n">' + total + '枚</span></h2>' + (html || '<p class="empty">該当するカードがありません</p>');
+    $('deckBody').innerHTML = '<h2>デッキ <span class="n">' + total + '枚</span></h2>' + (arr.length ? html : '<p class="empty">該当するカードがありません</p>');
+  }
+
+  var RARITY_CLASS = { 'アンコモン': 'r-uncommon', 'レア': 'r-rare', '呪い': 'r-curse' };
+  function gameCardHTML(g) {
+    var i = g.info, it = g.items[0];
+    var rc = g.upgraded ? i.ucost : i.cost;
+    var cost = (rc === -1 || rc === '' || rc == null) ? '' : rc;
+    var desc = g.upgraded && i.upg ? i.upg : i.desc;
+    var got = it.src === 'start' ? '初期デッキ' : (floorJP(it.floor) + (srcJP(it.src) ? '・' + srcJP(it.src) : ''));
+    return '<div class="gc ' + i.type + (newKeys[g.key] ? ' new' : '') + '">' +
+      (cost !== '' ? '<span class="co">' + esc(cost) + '</span>' : '') +
+      '<div class="bn ' + (RARITY_CLASS[i.rarity] || '') + (g.upgraded ? ' upg' : '') + '">' + esc(i.name) + (g.upgraded ? '<span class="up">+</span>' : '') + '</div>' +
+      '<div class="tp">' + esc(i.typeJP) + '</div>' +
+      '<div class="tx"><div class="desc">' + fmt(desc) + '</div></div>' +
+      '<div class="gt">' + esc(got) + '</div></div>';
   }
 
   function cardHTML(g) {
     var i = g.info;
-    var cost = (i.cost === -1 || i.cost === '' || i.cost == null) ? '−' : i.cost;
+    var rc = g.upgraded ? i.ucost : i.cost;
+    var cost = (rc === -1 || rc === '' || rc == null) ? '−' : rc;
     var desc = g.upgraded && i.upg ? i.upg : i.desc;
     var gotList = {};
     g.items.forEach(function (it) {
@@ -289,6 +351,11 @@
   });
   $('q').addEventListener('input', renderDeck);
   $('sort').addEventListener('change', renderDeck);
+  $('view').addEventListener('click', function () {
+    VIEW = VIEW === 'card' ? 'list' : 'card';
+    try { localStorage.setItem('sts2deck_view', VIEW); } catch (e) {}
+    renderDeck();
+  });
 
   // 用語の説明
   document.addEventListener('click', function (e) {

@@ -58,6 +58,28 @@
       if (!initial) history.push({ floor: floor, kind: 'relic', key: k, src: src, seq: seq });
     }
 
+    var reconciled = 0;
+    // その時点のデッキ（スナップショット）と枚数が合わなければ、その階で増減があったものとして補正する
+    function reconcileCounts(snapDeck, floor, seq) {
+      var expect = {}, have = {};
+      snapDeck.forEach(function (c) { var k = norm(c.id).key; expect[k] = (expect[k] || 0) + 1; });
+      deck.forEach(function (d) { have[d.key] = (have[d.key] || 0) + 1; });
+      Object.keys(expect).forEach(function (k) {
+        for (var i = 0; i < expect[k] - (have[k] || 0); i++) {
+          deck.push({ key: k, upgraded: false, floor: floor, src: 'unknown', seq: seq });
+          history.push({ floor: floor, kind: 'add', key: k, src: '', seq: seq });
+          reconciled++;
+        }
+      });
+      Object.keys(have).forEach(function (k) {
+        for (var i = 0; i < have[k] - (expect[k] || 0); i++) {
+          for (var j = deck.length - 1; j >= 0; j--) if (deck[j].key === k) { deck.splice(j, 1); break; }
+          history.push({ floor: floor, kind: 'remove', key: k, src: '', seq: seq });
+          reconciled++;
+        }
+      });
+    }
+
     ev.forEach(function (m) {
       if (typeof m.floor === 'number') curFloor = m.floor;
       var f = typeof m.floor === 'number' ? m.floor : curFloor;
@@ -74,7 +96,7 @@
       if (m.type === 'card_removed' && m.card) {
         removeCard(m.card, f, m.context || 'other', m.seq);
       }
-      if (/upgrad/i.test(m.type) && m.card) {
+      if ((/upgrad|smith/i.test(m.type)) && m.card) {
         var n = norm(m.card.id);
         for (var i = 0; i < deck.length; i++) if (deck[i].key === n.key && !deck[i].upgraded) { deck[i].upgraded = true; break; }
         history.push({ floor: f, kind: 'upgrade', key: n.key, src: m.context || '', seq: m.seq });
@@ -83,6 +105,7 @@
         addRelic(m.relicId, f, m.roomType || 'other', m.seq, false);
       }
       if (p) {
+        if (started && p.deck) reconcileCounts(p.deck, f, m.seq);
         snap = { seq: m.seq, floor: f, p: p };
         if (p.relics) p.relics.forEach(function (r) { addRelic(r, f, 'unknown', m.seq, !started); });
       }
@@ -97,28 +120,19 @@
       else if (isPlayerHp && typeof m.hp === 'number') { hp = m.hp; if (typeof m.maxHp === 'number') maxHp = m.maxHp; }
     });
 
-    // 最新スナップショットと照合して、ずれがあれば補正する
-    var reconciled = 0;
+    // 最新スナップショットとの照合（強化状態・レリック）
     if (snap && snap.p.deck) {
-      var expect = {};
-      snap.p.deck.forEach(function (c) { var k = norm(c.id).key; expect[k] = (expect[k] || 0) + 1; });
+      // 強化状態もスナップショットに合わせる（イベント経由の強化などの取りこぼし対策）
+      var upCount = {};
+      snap.p.deck.forEach(function (c) { if (isUpgraded(c)) { var k = norm(c.id).key; upCount[k] = (upCount[k] || 0) + 1; } });
       ev.forEach(function (m) {
         if ((m.seq || 0) <= snap.seq) return;
-        if (m.type === 'card_added' && m.newPile === 'Deck' && !m.inCombat && m.card) { var k = norm(m.card.id).key; expect[k] = (expect[k] || 0) + 1; }
-        if (m.type === 'card_removed' && m.card) { var k2 = norm(m.card.id).key; expect[k2] = (expect[k2] || 0) - 1; }
+        if (m.type === 'card_added' && m.newPile === 'Deck' && !m.inCombat && m.card && isUpgraded(m.card)) { var k = norm(m.card.id).key; upCount[k] = (upCount[k] || 0) + 1; }
+        if ((/upgrad|smith/i.test(m.type)) && m.card) { var k3 = norm(m.card.id).key; upCount[k3] = (upCount[k3] || 0) + 1; }
       });
-      var have = {};
-      deck.forEach(function (d) { have[d.key] = (have[d.key] || 0) + 1; });
-      Object.keys(expect).forEach(function (k) {
-        var diff = expect[k] - (have[k] || 0);
-        for (var i = 0; i < diff; i++) { deck.push({ key: k, upgraded: false, floor: null, src: 'unknown', seq: 1e12 }); reconciled++; }
-      });
-      Object.keys(have).forEach(function (k) {
-        var diff = (have[k] || 0) - (expect[k] || 0);
-        for (var i = 0; i < diff; i++) {
-          for (var j = deck.length - 1; j >= 0; j--) if (deck[j].key === k) { deck.splice(j, 1); reconciled++; break; }
-        }
-      });
+      var seen = {};
+      deck.forEach(function (d) { var n = seen[d.key] = (seen[d.key] || 0) + 1; d.upgraded = n <= (upCount[d.key] || 0); });
+
       // スナップショットにないレリックは外す（交換・消滅など）
       var snapRel = (snap.p.relics || []).map(function (r) { return norm(r).key; });
       ev.forEach(function (m) { if ((m.seq || 0) > snap.seq && m.type === 'relic_obtained' && m.relicId) snapRel.push(norm(m.relicId).key); });
