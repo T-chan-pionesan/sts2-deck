@@ -20,7 +20,8 @@
   /* カード表示 */
   .tsz { display: inline-flex; align-items: center; gap: 4px; }
   .tsz button { font: inherit; width: 40px; height: 38px; color: var(--text); background: var(--panel2); border: 1px solid #59607a; border-radius: 8px; cursor: pointer; font-weight: 800; }
-  .tsz span { min-width: 48px; text-align: center; color: var(--sub); font-size: 13px; }
+  .tsz .tsl { min-width: 0; color: var(--sub); font-size: 13px; margin-right: 2px; }
+  .tsz #tsVal { min-width: 48px; text-align: center; color: var(--sub); font-size: 13px; }
   .viewbtn { font: inherit; color: var(--text); background: var(--panel2); border: 1px solid #59607a; border-radius: 8px; padding: 8px 14px; cursor: pointer; }
   .cgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 14px 12px; }
   .gc { position: relative; aspect-ratio: 5 / 7; min-height: 0; border-radius: 12px; padding: 30px 8px 8px; display: flex; flex-direction: column; align-items: center;
@@ -56,6 +57,7 @@
   .top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; max-width: 980px; margin: 0 auto; }
   .who { font-size: 20px; font-weight: 700; }
   .chip { background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 2px 12px; font-size: 15px; white-space: nowrap; }
+  .viewers { color: #fff; background: #2f5f46; border-color: #3f8a62; }
   .live { color: #fff; background: #d64545; border-color: #d64545; }
   .ended { color: var(--sub); }
   .updated { color: var(--sub); font-size: 13px; margin-left: auto; }
@@ -112,6 +114,7 @@
     <span class="chip" id="floor"></span>
     <span class="chip" id="hp"></span>
     <span class="chip" id="gold"></span>
+    <span class="chip viewers" id="viewers" hidden></span>
     <span class="updated" id="updated"></span>
   </div>
   <nav>
@@ -130,7 +133,7 @@
         <option value="cost">コスト</option>
         <option value="name">名前順</option>
       </select>
-      <span class="tsz" title="効果の文字の大きさ"><button type="button" id="tsDown" aria-label="文字を小さく">A−</button><span id="tsVal">100%</span><button type="button" id="tsUp" aria-label="文字を大きく">A＋</button></span>
+      <span class="tsz" title="効果の文字の大きさ"><span class="tsl">フォントサイズ</span><button type="button" id="tsDown" aria-label="フォントサイズを小さく">−</button><span id="tsVal">100%</span><button type="button" id="tsUp" aria-label="フォントサイズを大きく">＋</button></span>
       <button id="view" class="viewbtn" type="button">カード表示に切り替え</button>
     </div>
     <div id="deckBody"><p class="msg">読み込み中…</p></div>
@@ -143,7 +146,7 @@
   データ：<a href="https://spirelink.gg" target="_blank" rel="noopener">SpireLink</a>（ラン情報）／<a href="https://spire-codex.com" target="_blank" rel="noopener">Spire Codex</a>（日本語のカード・レリック情報）。
   ゲームデータの権利は Mega Crit Games に帰属します。数秒〜数十秒遅れて反映されます。強化（＋）の反映はSpireLinkの記録内容に依存します。
   <span id="dataver"></span><br>
-  このページは閲覧者数を数えるために Google アナリティクス（Cookie）を使っています。個人を特定する情報は集めていません。
+  このページは閲覧者数を数えるために Google アナリティクス（Cookie）と、今見ている人数の表示のために Firebase を使っています。個人を特定する情報は集めていません。
   <a href="https://policies.google.com/technologies/partner-sites?hl=ja" target="_blank" rel="noopener">Google によるデータの使用について</a> ／
   <a href="#" id="gaOff">このブラウザでは計測しない</a>
 </footer>
@@ -183,6 +186,32 @@
     document.getElementById('cYes').addEventListener('click', function () { set('yes'); box.hidden = true; load(); });
     document.getElementById('cNo').addEventListener('click', function () { set('no'); box.hidden = true; });
   });
+})();
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<script>
+// 今このページを見ている人数（Firebase Realtime Database のプレゼンス機能）
+// ページを開いている間だけ /presence/<ランダムID> に true を置き、閉じたらサーバー側で自動的に消える
+(function () {
+  try {
+    if (!window.firebase) return;
+    var app = firebase.initializeApp({ databaseURL: 'https://sts2-deck-viewers-default-rtdb.asia-southeast1.firebasedatabase.app' });
+    var db = app.database();
+    var id = 'v' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    var me = db.ref('presence/' + id);
+    db.ref('.info/connected').on('value', function (snap) {
+      if (snap.val() !== true) return;
+      me.onDisconnect().remove().then(function () { me.set(true); });
+    });
+    db.ref('presence').on('value', function (snap) {
+      var n = snap.numChildren();
+      var el = document.getElementById('viewers');
+      if (!el) return;
+      el.hidden = n < 1;
+      el.textContent = '👀 今 ' + n + ' 人が見ています';
+    });
+  } catch (e) { console.warn('viewer count disabled', e); }
 })();
 </script>
 <script src="deck.js"></script>
