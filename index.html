@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ティーのスレスパ2 デッキ（リアルタイム）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+1p:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #14161c; --panel: #1e212a; --panel2: #262a35; --line: #343947;
+    --text: #eceef3; --sub: #a3a9b8; --gold: #f2c14e; --blue: #7cb7ff; --red: #ff7b7b; --green: #7be0a0;
+    --atk: #ff8a7a; --skl: #7cb7ff; --pow: #f2c14e; --oth: #b9b9c6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: "M PLUS 1p", system-ui, sans-serif; font-size: 16px; line-height: 1.6; }
+  header { position: sticky; top: 0; z-index: 5; background: rgba(20,22,28,.96); border-bottom: 1px solid var(--line); padding: 12px 16px; }
+  .top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; max-width: 980px; margin: 0 auto; }
+  .who { font-size: 20px; font-weight: 700; }
+  .chip { background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 2px 12px; font-size: 15px; white-space: nowrap; }
+  .live { color: #fff; background: #d64545; border-color: #d64545; }
+  .ended { color: var(--sub); }
+  .updated { color: var(--sub); font-size: 13px; margin-left: auto; }
+  nav { display: flex; gap: 6px; max-width: 980px; margin: 10px auto 0; overflow-x: auto; }
+  nav button { flex: 0 0 auto; font: inherit; font-size: 15px; color: var(--sub); background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 6px 14px; cursor: pointer; }
+  nav button.on { color: var(--text); background: var(--panel2); border-color: #59607a; }
+  main { max-width: 980px; margin: 0 auto; padding: 16px; }
+  .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .tools input { flex: 1 1 220px; font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+  .tools select { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+  h2 { font-size: 17px; margin: 20px 0 8px; color: var(--sub); font-weight: 700; }
+  h2 .n { color: var(--text); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 10px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-left: 5px solid var(--oth); border-radius: 10px; padding: 10px 12px; }
+  .card.Attack { border-left-color: var(--atk); } .card.Skill { border-left-color: var(--skl); } .card.Power { border-left-color: var(--pow); }
+  .card.new { box-shadow: 0 0 0 2px var(--green) inset; }
+  .row1 { display: flex; align-items: center; gap: 8px; }
+  .cost { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: #3b3f4d; font-weight: 700; font-size: 15px; }
+  .name { font-weight: 700; font-size: 17px; }
+  .name .up { color: var(--green); }
+  .cnt { margin-left: auto; font-weight: 700; color: var(--gold); font-size: 16px; }
+  .meta { color: var(--sub); font-size: 13px; margin-top: 2px; }
+  .desc { margin-top: 6px; font-size: 15px; white-space: pre-line; }
+  .desc .g { color: var(--gold); border-bottom: 1px dotted rgba(242,193,78,.6); cursor: help; background: none; border-top: 0; border-left: 0; border-right: 0; font: inherit; padding: 0; }
+  .desc .b { color: var(--blue); font-weight: 700; } .desc .r { color: var(--red); font-weight: 700; }
+  .desc .gp { color: var(--gold); } .desc .gr { color: var(--green); font-weight: 700; } .desc .pu { color: #c9a2ff; font-weight: 700; }
+  .desc .en { letter-spacing: -2px; }
+  @media (max-width: 640px) { header { position: static; } .updated { margin-left: 0; } }
+  .got { margin-top: 6px; font-size: 13px; color: var(--sub); }
+  .got b { color: var(--text); font-weight: 400; }
+  .list { display: flex; flex-direction: column; gap: 8px; }
+  .hist { display: flex; gap: 10px; align-items: baseline; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+  .hist .fl { flex: 0 0 52px; color: var(--sub); font-size: 14px; }
+  .hist .k { flex: 0 0 auto; font-size: 13px; border-radius: 6px; padding: 0 8px; }
+  .k.add { background: #1f3b2b; color: var(--green); } .k.remove { background: #452626; color: var(--red); } .k.relic { background: #3f3519; color: var(--gold); } .k.upgrade { background: #1d3147; color: var(--blue); }
+  .empty, .msg { color: var(--sub); padding: 20px 0; }
+  #tip { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); width: min(560px, calc(100% - 24px)); background: #2b3040; border: 1px solid #59607a; border-radius: 12px; padding: 12px 16px; display: none; z-index: 10; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+  #tip b { color: var(--gold); }
+  #tip .x { float: right; background: none; border: 0; color: var(--sub); font-size: 18px; cursor: pointer; }
+  footer { max-width: 980px; margin: 24px auto 40px; padding: 0 16px; color: var(--sub); font-size: 12px; }
+  footer a { color: var(--sub); }
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <span class="who" id="who">読み込み中…</span>
+    <span class="chip" id="status"></span>
+    <span class="chip" id="floor"></span>
+    <span class="chip" id="hp"></span>
+    <span class="chip" id="gold"></span>
+    <span class="updated" id="updated"></span>
+  </div>
+  <nav>
+    <button data-tab="deck" class="on">デッキ</button>
+    <button data-tab="relics">レリック・ポーション</button>
+    <button data-tab="history">取得履歴</button>
+  </nav>
+</header>
+<main>
+  <div id="deck">
+    <div class="tools">
+      <input id="q" type="search" placeholder="カード名・効果で絞り込み（例：ブロック）">
+      <select id="sort">
+        <option value="type">種類別</option>
+        <option value="got">取得が新しい順</option>
+        <option value="cost">コスト順</option>
+      </select>
+    </div>
+    <div id="deckBody"><p class="msg">読み込み中…</p></div>
+  </div>
+  <div id="relics" hidden><div id="relicBody"></div></div>
+  <div id="history" hidden><div id="histBody"></div></div>
+</main>
+<div id="tip"><button class="x" aria-label="閉じる">×</button><div id="tipBody"></div></div>
+<footer>
+  データ：<a href="https://spirelink.gg" target="_blank" rel="noopener">SpireLink</a>（ラン情報）／<a href="https://spire-codex.com" target="_blank" rel="noopener">Spire Codex</a>（日本語のカード・レリック情報）。
+  ゲームデータの権利は Mega Crit Games に帰属します。数秒〜数十秒遅れて反映されます。強化（＋）の反映はSpireLinkの記録内容に依存します。
+  <span id="dataver"></span>
+</footer>
+<script src="deck.js"></script>
+<script>
+(function () {
+  var params = new URLSearchParams(location.search);
+  var PROFILE = params.get('u') || '8hGuc8R0';
+  var API = 'https://api.spirelink.gg/api';
+  var POLL_MS = 15000;
+
+  var DATA = null, state = null, run = null, lastSeq = -1, lastRunId = null, prevKeys = null, newKeys = {};
+
+  var TYPE_JP = { Attack: 'アタック', Skill: 'スキル', Power: 'パワー', Curse: '呪い', Status: '状態異常', Quest: 'クエスト' };
+  var TYPE_ORDER = ['Attack', 'Skill', 'Power', 'Quest', 'Status', 'Curse'];
+  var SRC_JP = {
+    start: '初期', combat_reward: '戦闘報酬', event: 'イベント', shop: 'ショップ', rest: '休憩所', rest_site: '休憩所',
+    treasure: '宝箱', Treasure: '宝箱', Monster: '戦闘', Elite: 'エリート', Boss: 'ボス', Event: 'イベント', Shop: 'ショップ',
+    RestSite: '休憩所', unknown: '', other: ''
+  };
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function fmt(text) {
+    var s = esc(text || '');
+    s = s.replace(/\[energy:(\d+)\]/g, function (_, n) { return '<span class="en">' + '⚡'.repeat(Math.min(+n, 5)) + '</span>'; });
+    s = s.replace(/\[star:(\d+)\]/g, '<span class="b">★$1</span>');
+    s = s.replace(/\[gold\]([\s\S]*?)\[\/gold\]/g, function (_, t) {
+      return DATA && DATA.glossary[t] ? '<button class="g" data-term="' + t + '">' + t + '</button>' : '<span class="gp">' + t + '</span>';
+    });
+    s = s.replace(/\[blue\]([\s\S]*?)\[\/blue\]/g, '<span class="b">$1</span>');
+    s = s.replace(/\[red\]([\s\S]*?)\[\/red\]/g, '<span class="r">$1</span>');
+    s = s.replace(/\[green\]([\s\S]*?)\[\/green\]/g, '<span class="gr">$1</span>');
+    s = s.replace(/\[purple\]([\s\S]*?)\[\/purple\]/g, '<span class="pu">$1</span>');
+    s = s.replace(/\[[A-Za-z_.:\/]*\]/g, '');
+    return s;
+  }
+  function srcJP(s) { return SRC_JP[s] != null ? SRC_JP[s] : s; }
+  function floorJP(f) { return f == null ? '不明' : f + '階'; }
+
+  function cardInfo(key) {
+    var c = DATA.cards[key];
+    if (!c) return { name: key, desc: '（日本語データなし）', upg: '', cost: '', type: 'Other', typeJP: '', rarity: '' };
+    var typeKey = Object.keys(TYPE_JP).find(function (k) { return TYPE_JP[k] === c[4]; }) || 'Other';
+    return { name: c[0], desc: c[1], upg: c[2], cost: c[3], type: typeKey, typeJP: c[4], rarity: c[5], star: c[7] };
+  }
+
+  function renderDeck() {
+    if (!state) return;
+    var q = $('q').value.trim();
+    var sort = $('sort').value;
+    // 同じカード（強化の有無も同じ）をまとめる
+    var groups = {};
+    state.deck.forEach(function (d) {
+      var gk = d.key + (d.upgraded ? '+' : '');
+      if (!groups[gk]) groups[gk] = { key: d.key, upgraded: d.upgraded, items: [] };
+      groups[gk].items.push(d);
+    });
+    var arr = Object.keys(groups).map(function (k) {
+      var g = groups[k]; g.info = cardInfo(g.key);
+      g.lastSeq = Math.max.apply(null, g.items.map(function (i) { return i.seq || 0; }));
+      return g;
+    });
+    if (q) arr = arr.filter(function (g) { return (g.info.name + (g.upgraded ? g.info.upg : g.info.desc)).indexOf(q) >= 0; });
+
+    function costNum(c) { return c === 'X' ? 99 : (typeof c === 'number' && c >= 0 ? c : 100); }
+    var html = '';
+    function block(list) {
+      return '<div class="grid">' + list.map(cardHTML).join('') + '</div>';
+    }
+    if (sort === 'type') {
+      TYPE_ORDER.concat(['Other']).forEach(function (t) {
+        var list = arr.filter(function (g) { return g.info.type === t; })
+          .sort(function (a, b) { return a.lastSeq - b.lastSeq; });
+        if (!list.length) return;
+        var n = list.reduce(function (s, g) { return s + g.items.length; }, 0);
+        html += '<h2>' + (TYPE_JP[t] || 'その他') + ' <span class="n">' + n + '枚</span></h2>' + block(list);
+      });
+    } else if (sort === 'got') {
+      html = block(arr.sort(function (a, b) { return b.lastSeq - a.lastSeq; }));
+    } else {
+      html = block(arr.sort(function (a, b) { return costNum(a.info.cost) - costNum(b.info.cost) || a.lastSeq - b.lastSeq; }));
+    }
+    var total = state.deck.length;
+    $('deckBody').innerHTML = '<h2>デッキ <span class="n">' + total + '枚</span></h2>' + (html || '<p class="empty">該当するカードがありません</p>');
+  }
+
+  function cardHTML(g) {
+    var i = g.info;
+    var cost = (i.cost === -1 || i.cost === '' || i.cost == null) ? '−' : i.cost;
+    var desc = g.upgraded && i.upg ? i.upg : i.desc;
+    var gotList = {};
+    g.items.forEach(function (it) {
+      var label = it.src === 'start' ? '初期デッキ' : (floorJP(it.floor) + (srcJP(it.src) ? '・' + srcJP(it.src) : ''));
+      gotList[label] = (gotList[label] || 0) + 1;
+    });
+    var got = Object.keys(gotList).map(function (k) { return '<b>' + esc(k) + '</b>' + (gotList[k] > 1 ? '×' + gotList[k] : ''); }).join('、');
+    var isNew = newKeys[g.key];
+    return '<div class="card ' + i.type + (isNew ? ' new' : '') + '">' +
+      '<div class="row1"><span class="cost">' + esc(cost) + '</span>' +
+      '<span class="name">' + esc(i.name) + (g.upgraded ? '<span class="up">＋</span>' : '') + '</span>' +
+      (g.items.length > 1 ? '<span class="cnt">×' + g.items.length + '</span>' : '') + '</div>' +
+      '<div class="meta">' + esc(i.typeJP) + (i.rarity && i.rarity !== i.typeJP ? '・' + esc(i.rarity) : '') + (i.star != null ? '・★' + esc(i.star) : '') + '</div>' +
+      '<div class="desc">' + fmt(desc) + '</div>' +
+      '<div class="got">入手：' + got + '</div></div>';
+  }
+
+  function renderRelics() {
+    if (!state) return;
+    var r = state.relics.map(function (x) {
+      var d = DATA.relics[x.key] || [x.key, '（日本語データなし）', ''];
+      var got = x.src === 'start' ? '初期レリック' : floorJP(x.floor) + (srcJP(x.src) ? '・' + srcJP(x.src) : '');
+      return '<div class="card Power"><div class="row1"><span class="name">' + esc(d[0]) + '</span></div>' +
+        '<div class="meta">' + esc(d[2]) + '</div><div class="desc">' + fmt(d[1]) + '</div><div class="got">入手：<b>' + esc(got) + '</b></div></div>';
+    }).join('');
+    var p = state.potions.map(function (k) {
+      if (!k) return '<div class="card"><div class="row1"><span class="name" style="color:var(--sub)">空き</span></div></div>';
+      var d = DATA.potions[k] || [k, '（日本語データなし）'];
+      return '<div class="card Skill"><div class="row1"><span class="name">' + esc(d[0]) + '</span></div><div class="desc">' + fmt(d[1]) + '</div></div>';
+    }).join('');
+    $('relicBody').innerHTML = '<h2>レリック <span class="n">' + state.relics.length + '個</span></h2><div class="grid">' + (r || '<p class="empty">なし</p>') + '</div>' +
+      '<h2>ポーション</h2><div class="grid">' + (p || '<p class="empty">なし</p>') + '</div>';
+  }
+
+  function renderHistory() {
+    if (!state) return;
+    var KJ = { add: '追加', remove: '削除', relic: 'レリック', upgrade: '強化' };
+    var rows = state.history.map(function (h) {
+      var name = h.kind === 'relic' ? (DATA.relics[h.key] || [h.key])[0] : cardInfo(h.key).name;
+      return '<div class="hist"><span class="fl">' + floorJP(h.floor) + '</span><span class="k ' + h.kind + '">' + KJ[h.kind] + '</span>' +
+        '<span>' + esc(name) + (srcJP(h.src) ? ' <span style="color:var(--sub);font-size:13px">（' + esc(srcJP(h.src)) + '）</span>' : '') + '</span></div>';
+    }).join('');
+    $('histBody').innerHTML = '<h2>取得履歴（新しい順）</h2><div class="list">' + (rows || '<p class="empty">まだありません</p>') + '</div>';
+  }
+
+  function renderHeader() {
+    if (!run) return;
+    var ch = DATA.chars[DeckBuilder.norm(run.character).key] || run.character;
+    $('who').textContent = (run.displayName || '') + '：' + ch + (run.ascension ? '（アセンション' + run.ascension + '）' : '');
+    var live = run.status === 'in_progress';
+    $('status').textContent = live ? '● プレイ中' : (run.status === 'victory' || run.status === 'won' ? '勝利' : '終了したラン');
+    $('status').className = 'chip ' + (live ? 'live' : 'ended');
+    $('floor').textContent = state ? state.floor + '階' : '';
+    $('hp').textContent = state && state.hp != null ? 'HP ' + state.hp + '/' + state.maxHp : '';
+    $('gold').textContent = state && state.gold != null ? state.gold + 'G' : '';
+  }
+
+  function renderAll() { renderHeader(); renderDeck(); renderRelics(); renderHistory(); }
+
+  function pickRun(profile) {
+    var runs = (profile && profile.recentRuns) || [];
+    var liveRun = runs.find(function (r) { return r.status === 'in_progress'; });
+    if (liveRun) return liveRun;
+    return runs.slice().sort(function (a, b) { return (b.lastEventAt || 0) - (a.lastEventAt || 0); })[0] || null;
+  }
+
+  function poll() {
+    fetch(API + '/profile/' + encodeURIComponent(PROFILE), { credentials: 'omit' })
+      .then(function (r) { if (!r.ok) throw new Error('profile ' + r.status); return r.json(); })
+      .then(function (profile) {
+        var r = pickRun(profile);
+        if (!r) { $('who').textContent = (profile.displayName || '') + '：公開中のランはまだありません'; $('deckBody').innerHTML = '<p class="msg">ランが始まると、ここにデッキが表示されます。</p>'; return; }
+        run = r;
+        if (r.runId === lastRunId && r.maxSeq === lastSeq) { renderHeader(); stamp(); return; }
+        return fetch(API + '/runs/' + r.runId + '/events', { credentials: 'omit' })
+          .then(function (x) { if (!x.ok) throw new Error('events ' + x.status); return x.json(); })
+          .then(function (j) {
+            var s = DeckBuilder.build(j.events || []);
+            // 直前の更新から増えたカードを少しのあいだ強調する
+            var keys = {}; s.deck.forEach(function (d) { keys[d.key] = (keys[d.key] || 0) + 1; });
+            newKeys = {};
+            if (prevKeys && r.runId === lastRunId) Object.keys(keys).forEach(function (k) { if (keys[k] > (prevKeys[k] || 0)) newKeys[k] = 1; });
+            prevKeys = keys;
+            state = s; lastSeq = r.maxSeq; lastRunId = r.runId;
+            renderAll(); stamp();
+          });
+      })
+      .catch(function (e) { $('updated').textContent = '更新に失敗しました（再試行します）'; console.error(e); })
+      .then(function () { setTimeout(poll, POLL_MS); });
+  }
+  function stamp() {
+    var d = new Date();
+    $('updated').textContent = '最終確認 ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0');
+  }
+
+  // タブ
+  document.querySelectorAll('nav button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('nav button').forEach(function (x) { x.classList.toggle('on', x === b); });
+      ['deck', 'relics', 'history'].forEach(function (id) { $(id).hidden = id !== b.dataset.tab; });
+    });
+  });
+  $('q').addEventListener('input', renderDeck);
+  $('sort').addEventListener('change', renderDeck);
+
+  // 用語の説明
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest && e.target.closest('.g');
+    if (t) {
+      var term = t.dataset.term, d = DATA.glossary[term];
+      $('tipBody').innerHTML = '<b>' + esc(term) + '</b><br>' + (d ? fmt(d) : '説明データがありません');
+      $('tip').style.display = 'block';
+      return;
+    }
+    if (e.target.closest && (e.target.closest('#tip .x') || !e.target.closest('#tip'))) $('tip').style.display = 'none';
+  });
+
+  fetch('data.json').then(function (r) { return r.json(); }).then(function (d) {
+    DATA = d; $('dataver').textContent = '（カードデータ：' + d.v + '）';
+    poll();
+  }).catch(function () { $('deckBody').innerHTML = '<p class="msg">データの読み込みに失敗しました。</p>'; });
+})();
+</script>
+</body>
+</html>
